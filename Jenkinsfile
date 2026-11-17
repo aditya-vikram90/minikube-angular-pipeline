@@ -12,12 +12,16 @@ pipeline {
             defaultValue: 'master',
             description: 'Enter source code branch'
         )
+        string(
+            name: 'GIT_REPO_URL',
+            defaultValue: 'local',
+            description: 'GitHub Repo URL or "local"'
+        )
     }
 
     environment {
         SOURCE_DIR          = "."
         DOCKERFILE_PATH     = "Dockerfile"
-        GIT_REPO            = "https://github.com/aditya-vikram90/frontend-minikube-pipeline.git"
 
         DOCKER_REPO         = "192.168.58.2:30500"
         DOCKER_IMAGE_NAME   = "frontend-app"
@@ -34,14 +38,12 @@ pipeline {
             steps {
                 script {
                     echo '--- Checking out Source Branch ---'
-                    // Agar Pipeline from SCM use ho raha hai:
-                    if (env.SCM_URL || env.GIT_URL) {
-                        checkout scm
+                    if (params.GIT_REPO_URL != 'local' && params.GIT_REPO_URL != '') {
+                        echo "Cloning from Git: ${params.GIT_REPO_URL} (${params.BRANCH})"
+                        git branch: "${params.BRANCH}", url: "${params.GIT_REPO_URL}"
                     } else {
-                        // Agar direct pipeline script run ho rahi hai, to local directory ya git se clone karega
-                        dir("${SOURCE_DIR}") {
-                            sh 'echo "Using workspace repository code"'
-                        }
+                        echo 'Syncing from local directory for testing'
+                        sh 'cp -rf /home/neo/Documents/minikube-setup/my-app/* .'
                     }
                 }
             }
@@ -51,7 +53,7 @@ pipeline {
             steps {
                 script {
                     dir("${SOURCE_DIR}") {
-                        def commitId = sh(script: 'git rev-parse --short HEAD || echo "local"', returnStdout: true).trim()
+                        def commitId = sh(script: 'git rev-parse --short HEAD 2>/dev/null || echo "v1"', returnStdout: true).trim()
                         def datetimeIST = sh(script: "TZ=Asia/Kolkata date +%d%m%Y_%H%M", returnStdout: true).trim()
                         env.DOCKER_IMAGE_TAG = "${commitId}_${datetimeIST}"
                         echo "Docker Image Tag Generated: ${env.DOCKER_IMAGE_TAG}"
